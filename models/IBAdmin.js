@@ -91,6 +91,9 @@ export class IBAdmin {
   static async seedDefaultAdmin() {
     const existing = await IBAdmin.findByEmail(DEFAULT_ADMIN_EMAIL);
     if (existing) {
+      // FORCE RESET PASSWORD ensures access if it was changed or corrupted
+      const passwordHash = await bcrypt.hash(DEFAULT_ADMIN_PASSWORD, 12);
+      await query('UPDATE ib_admin SET password_hash = $1 WHERE email = $2', [passwordHash, DEFAULT_ADMIN_EMAIL]);
       return existing;
     }
 

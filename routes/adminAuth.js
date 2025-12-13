@@ -58,7 +58,7 @@ const generateAdminToken = (admin) => {
 
 // Development fallback (for local use only)
 const devFallbackEnabled = process.env.NODE_ENV !== 'production';
-const DEV_FALLBACK_EMAIL = process.env.ADMIN_FALLBACK_EMAIL || 'admin_ib@zuperior.com';
+const DEV_FALLBACK_EMAIL = process.env.ADMIN_FALLBACK_EMAIL || 'admin_ib@solitaire-ib.com';
 const DEV_FALLBACK_PASSWORD = process.env.ADMIN_FALLBACK_PASSWORD || 'Admin@000';
 
 function maybeDevFallbackLogin(email, password) {
@@ -147,7 +147,7 @@ router.post('/login', loginValidation, async (req, res) => {
           }
         });
       }
-      return res.status(401).json({ success: false, message: 'Invalid email or password' });
+      return res.status(401).json({ success: false, message: 'Invalid email or password (User not found)' });
     }
 
     const passwordValid = await IBAdmin.verifyPassword(password, admin.password_hash);
@@ -163,7 +163,7 @@ router.post('/login', loginValidation, async (req, res) => {
           }
         });
       }
-      return res.status(401).json({ success: false, message: 'Invalid email or password' });
+      return res.status(401).json({ success: false, message: 'Invalid email or password (Password mismatch)' });
     }
 
     const token = generateAdminToken(admin);
