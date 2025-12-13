@@ -216,7 +216,7 @@ async function autoSyncTrades() {
 
     for (const ib of ibUsers) {
       try {
-        const userResult = await query('SELECT id FROM "User" WHERE email = $1', [ib.email]);
+        const userResult = await query('SELECT id FROM users WHERE email = $1', [ib.email]);
         if (userResult.rows.length === 0) continue;
 
         const userId = userResult.rows[0].id;
@@ -241,7 +241,7 @@ async function autoSyncTrades() {
           };
         }
 
-        const accountsResult = await query('SELECT "accountId" FROM "MT5Account" WHERE "userId" = $1', [userId]);
+        const accountsResult = await query('SELECT id as "accountId" FROM trading_accounts WHERE user_id = $1', [userId]);
 
         const syncAccountsFor = async (accountRows, ownerUserId, ownerGroupId = null) => {
           for (const account of accountRows) {
@@ -263,7 +263,7 @@ async function autoSyncTrades() {
                     const prof = await profRes.json();
                     groupId = (prof?.Data || prof?.data)?.Group || groupId;
                   }
-                } catch {}
+                } catch { }
 
                 await IBTradeHistory.upsertTrades(trades, { accountId, userId: ownerUserId, ibRequestId: ib.id, commissionMap, groupId });
                 await IBTradeHistory.calculateIBCommissions(accountId, ib.id);
@@ -281,7 +281,7 @@ async function autoSyncTrades() {
         const refUsersRes = await query('SELECT user_id FROM ib_referrals WHERE ib_request_id = $1 AND user_id IS NOT NULL', [ib.id]);
         for (const ref of refUsersRes.rows) {
           try {
-            const accRes = await query('SELECT "accountId" FROM "MT5Account" WHERE "userId" = $1', [ref.user_id]);
+            const accRes = await query('SELECT id as "accountId" FROM trading_accounts WHERE user_id = $1', [ref.user_id]);
             await syncAccountsFor(accRes.rows, ref.user_id, null);
           } catch (error) {
             console.error(`[Auto-Sync] Error syncing referred user ${ref.user_id}:`, error.message);
@@ -309,11 +309,11 @@ async function start() {
       // Socket.IO removed
       console.log(`Environment: ${process.env.NODE_ENV}`);
       console.log(`JWT secret configured: ${process.env.JWT_SECRET ? 'yes' : (process.env.NODE_ENV !== 'production' ? 'dev-fallback' : 'no')}`);
-      
+
       // Start auto-sync job (every 5 minutes)
       console.log('[Auto-Sync] Scheduling auto-sync job every 5 minutes');
       setInterval(autoSyncTrades, 5 * 60 * 1000); // 5 minutes
-      
+
       // Run initial sync after 1 minute
       setTimeout(autoSyncTrades, 60 * 1000);
     });
