@@ -1,7 +1,7 @@
 import { query } from '../config/database.js';
 import bcrypt from 'bcryptjs';
 
-const DEFAULT_ADMIN_EMAIL = 'admin_ib@zuperior.com';
+const DEFAULT_ADMIN_EMAIL = 'admin_ib@solitaire-ib.com';
 const DEFAULT_ADMIN_PASSWORD = 'Admin@000';
 
 export class IBAdmin {
