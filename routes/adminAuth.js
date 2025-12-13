@@ -134,8 +134,10 @@ router.post('/login', loginValidation, async (req, res) => {
 
     const { email, password } = req.body;
     const admin = await IBAdmin.findByEmail(email);
+    console.log(`[Login Attempt] Email: ${email}, Found: ${!!admin}`);
 
     if (!admin) {
+      console.log('[Login Attempt] User not found in database');
       const fallback = maybeDevFallbackLogin(email, password);
       if (fallback) {
         return res.json({
@@ -151,6 +153,7 @@ router.post('/login', loginValidation, async (req, res) => {
     }
 
     const passwordValid = await IBAdmin.verifyPassword(password, admin.password_hash);
+    console.log(`[Login Attempt] Password Valid: ${passwordValid}`);
     if (!passwordValid) {
       const fallback = maybeDevFallbackLogin(email, password);
       if (fallback) {
