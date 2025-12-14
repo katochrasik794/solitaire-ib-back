@@ -161,15 +161,25 @@ router.post('/apply-partner', applyPartnerValidation, async (req, res) => {
       }
     }
 
+    // Check if user exists in users table
     const existingUser = await User.findByEmail(email);
     if (!existingUser) {
       return res.status(404).json({
         success: false,
-        message: 'No user account found for this email. Please register first.'
+        message: 'No user account found for this email. Only existing users can apply to become a partner.'
       });
     }
 
-    const passwordMatches = await User.verifyPassword(password, existingUser.password);
+    // Verify password - users table uses password_hash column
+    const passwordHash = existingUser.password_hash || existingUser.password;
+    if (!passwordHash) {
+      return res.status(500).json({
+        success: false,
+        message: 'User account configuration error. Please contact support.'
+      });
+    }
+
+    const passwordMatches = await User.verifyPassword(password, passwordHash);
     if (!passwordMatches) {
       return res.status(401).json({
         success: false,
