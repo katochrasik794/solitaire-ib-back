@@ -1,11 +1,12 @@
 import express from 'express';
 import { SymbolsWithCategories } from '../models/SymbolsWithCategories.js';
-import { authenticateToken } from './auth.js';
+// Removed authenticateToken - symbols list is public data
+// import { authenticateToken } from './auth.js';
 
 const router = express.Router();
 
-// Get all active symbols for user (no authentication needed for symbol list, but we'll keep it for consistency)
-router.get('/', authenticateToken, async (req, res) => {
+// Get all active symbols for user (public endpoint - symbols are not sensitive data)
+router.get('/', async (req, res) => {
   try {
     const filters = {
       page: 1,
@@ -17,7 +18,9 @@ router.get('/', authenticateToken, async (req, res) => {
       sortDir: 'ASC'
     };
 
+    console.log('Fetching symbols with filters:', filters);
     const result = await SymbolsWithCategories.findAll(filters);
+    console.log(`Found ${result.symbols?.length || 0} symbols`);
 
     res.json({ 
       success: true, 
@@ -25,6 +28,7 @@ router.get('/', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Fetch symbols error:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({ 
       success: false, 
       message: 'Unable to fetch symbols', 
