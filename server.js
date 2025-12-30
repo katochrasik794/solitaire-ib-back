@@ -14,6 +14,7 @@ import { IBAdmin } from './models/IBAdmin.js';
 import { Symbols } from './models/Symbols.js';
 import { GroupManagement } from './models/GroupManagement.js';
 import { GroupCommissionStructures } from './models/GroupCommissionStructures.js';
+import { StructureSets } from './models/StructureSets.js';
 import { IBGroupAssignment } from './models/IBGroupAssignment.js';
 import { IBTradeHistory } from './models/IBTradeHistory.js';
 import { IBWithdrawal } from './models/IBWithdrawal.js';
@@ -133,6 +134,7 @@ async function initializeDatabase() {
     // Chat tables removed
     await GroupManagement.createTable();
     await GroupCommissionStructures.createTable();
+    await StructureSets.createTable();
     await IBGroupAssignment.createTable();
     await IBTradeHistory.createTable();
     await IBWithdrawal.createTable();

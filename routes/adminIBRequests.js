@@ -2,6 +2,7 @@ import express from 'express';
 import { IBRequest, IB_REQUEST_TYPE_VALUES, IB_REQUEST_STATUS_VALUES } from '../models/IBRequest.js';
 import { GroupManagement } from '../models/GroupManagement.js';
 import { GroupCommissionStructures } from '../models/GroupCommissionStructures.js';
+import { StructureSets } from '../models/StructureSets.js';
 import { IBGroupAssignment } from '../models/IBGroupAssignment.js';
 import { IBTradeHistory } from '../models/IBTradeHistory.js';
 // import { IBLevelUpHistory } from '../models/IBLevelUpHistory.js'; // File removed
@@ -357,6 +358,148 @@ router.get('/commission-structures', authenticateAdminToken, async (req, res) =>
   }
 });
 
+// Structure Sets Routes - MUST be before /:id route to avoid conflicts
+router.get('/structure-sets', authenticateAdminToken, async (req, res) => {
+  try {
+    const sets = await StructureSets.getAll();
+    res.json({
+      success: true,
+      data: { sets }
+    });
+  } catch (error) {
+    console.error('Fetch structure sets error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Unable to fetch structure sets'
+    });
+  }
+});
+
+// IMPORTANT: This route must come BEFORE /structure-sets/:id to avoid route conflicts
+router.get('/structure-sets/available-structures', authenticateAdminToken, async (req, res) => {
+  try {
+    const structures = await StructureSets.getAllAvailableStructures();
+    res.json({
+      success: true,
+      data: { structures }
+    });
+  } catch (error) {
+    console.error('Fetch available structures error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Unable to fetch available structures'
+    });
+  }
+});
+
+router.get('/structure-sets/:id', authenticateAdminToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const set = await StructureSets.getById(id);
+    if (!set) {
+      return res.status(404).json({
+        success: false,
+        message: 'Structure set not found'
+      });
+    }
+    const structureNames = await StructureSets.getStructuresBySetId(id);
+    const structures = await StructureSets.getStructuresWithDetails(id);
+    res.json({
+      success: true,
+      data: {
+        set: {
+          ...set,
+          structureNames,
+          structures
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Fetch structure set error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Unable to fetch structure set'
+    });
+  }
+});
+
+router.post('/structure-sets', authenticateAdminToken, async (req, res) => {
+  try {
+    const { name, stage, description, status, structureNames } = req.body;
+    
+    if (!name || !name.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Structure set name is required'
+      });
+    }
+
+    const set = await StructureSets.create({
+      name: name.trim(),
+      stage: stage || 1,
+      description: description || '',
+      status: status || 'active',
+      structureNames: structureNames || []
+    });
+
+    res.json({
+      success: true,
+      message: 'Structure set created successfully',
+      data: { set }
+    });
+  } catch (error) {
+    console.error('Create structure set error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Unable to create structure set'
+    });
+  }
+});
+
+router.put('/structure-sets/:id', authenticateAdminToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, stage, description, status, structureNames } = req.body;
+
+    const set = await StructureSets.update(id, {
+      name,
+      stage,
+      description,
+      status,
+      structureNames
+    });
+
+    res.json({
+      success: true,
+      message: 'Structure set updated successfully',
+      data: { set }
+    });
+  } catch (error) {
+    console.error('Update structure set error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Unable to update structure set'
+    });
+  }
+});
+
+router.delete('/structure-sets/:id', authenticateAdminToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await StructureSets.delete(id);
+    res.json({
+      success: true,
+      message: 'Structure set deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete structure set error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Unable to delete structure set'
+    });
+  }
+});
+
 // Get groups with their commission structures for approval
 router.get('/approval-options', authenticateAdminToken, async (req, res) => {
   try {
@@ -370,7 +513,7 @@ router.get('/approval-options', authenticateAdminToken, async (req, res) => {
     // Group structures by group_id
     const groupsWithStructures = groups.map(group => {
       const groupStructures = structures
-        .filter(structure => structure.group_id === group.group_id)
+        .filter(structure => structure.group_id === group.group)
         .map(structure => ({
           ...structure,
           // Ensure structure_name is available (handle both snake_case and camelCase)
@@ -378,7 +521,10 @@ router.get('/approval-options', authenticateAdminToken, async (req, res) => {
           structureName: structure.structure_name || structure.structureName
         }));
       return {
-        ...group,
+        group_id: group.group,
+        name: group.dedicated_name || group.group, // Use dedicated_name as name
+        dedicated_name: group.dedicated_name,
+        account_type: group.account_type,
         commissionStructures: groupStructures
       };
     });

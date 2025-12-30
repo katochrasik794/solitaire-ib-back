@@ -61,20 +61,40 @@ router.post('/login', loginValidation, async (req, res) => {
     }
 
     const { email, password } = req.body;
-    const request = await IBRequest.findByEmail(email);
-
-    if (!request) {
+    
+    // First check if user exists in users table
+    const existingUser = await User.findByEmail(email);
+    if (!existingUser) {
       return res.status(401).json({
         success: false,
         message: 'Invalid email or password'
       });
     }
 
-    const passwordValid = await IBRequest.verifyPassword(password, request.password_hash);
+    // Verify password against users table
+    const passwordHash = existingUser.password_hash || existingUser.password;
+    if (!passwordHash) {
+      return res.status(500).json({
+        success: false,
+        message: 'User account configuration error. Please contact support.'
+      });
+    }
+
+    const passwordValid = await User.verifyPassword(password, passwordHash);
     if (!passwordValid) {
       return res.status(401).json({
         success: false,
         message: 'Invalid email or password'
+      });
+    }
+
+    // Now check if they have an IB request
+    const request = await IBRequest.findByEmail(email);
+    if (!request) {
+      return res.status(403).json({
+        success: false,
+        message: 'No IB application found. Please apply to become a partner first.',
+        requestStatus: 'not_found'
       });
     }
 
