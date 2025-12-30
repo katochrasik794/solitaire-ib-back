@@ -87,7 +87,8 @@ export class SymbolsWithCategories {
   static async syncFromAPI(categoryFilter = null) {
     try {
       // Fetch categories
-      const categoriesResponse = await fetch('http://18.175.242.21:5003/api/Symbols/categories', {
+      const { getMT5ApiUrl, MT5_ENDPOINTS } = await import('../config/mt5Api.js');
+      const categoriesResponse = await fetch(getMT5ApiUrl(MT5_ENDPOINTS.SYMBOLS_CATEGORIES), {
         method: 'GET',
         headers: {
           'accept': 'text/plain',

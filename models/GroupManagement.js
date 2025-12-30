@@ -106,12 +106,23 @@ export class GroupManagement {
     }
   }
 
-  static async syncFromAPI(apiUrl = 'http://18.175.242.21:3000/api/Groups') {
+  static async syncFromAPI(apiUrl = null) {
     try {
-      // Handle relative URLs - if it starts with /, prepend the base URL
-      let fullApiUrl = apiUrl;
-      if (apiUrl.startsWith('/')) {
-        fullApiUrl = `http://18.175.242.21:3000${apiUrl}`;
+      const { getMT5ApiUrl, MT5_ENDPOINTS } = await import('../config/mt5Api.js');
+      
+      // Use provided URL or default to Groups endpoint
+      let fullApiUrl;
+      if (apiUrl) {
+        // Handle relative URLs - if it starts with /, prepend the base URL
+        if (apiUrl.startsWith('/')) {
+          const { MT5_API_BASE } = await import('../config/mt5Api.js');
+          fullApiUrl = `${MT5_API_BASE}${apiUrl}`;
+        } else {
+          fullApiUrl = apiUrl;
+        }
+      } else {
+        // Use default Groups endpoint
+        fullApiUrl = getMT5ApiUrl(MT5_ENDPOINTS.GROUPS);
       }
 
       console.log('[SYNC] Fetching groups from:', fullApiUrl);
@@ -546,7 +557,7 @@ export class GroupManagement {
       }
 
       const result = await query(
-        'UPDATE group_management SET name = $1, updated_at = CURRENT_TIMESTAMP WHERE group_id = $2',
+        'UPDATE group_management SET dedicated_name = $1, updated_at = CURRENT_TIMESTAMP WHERE "group" = $2',
         [trimmedName, groupId]
       );
 

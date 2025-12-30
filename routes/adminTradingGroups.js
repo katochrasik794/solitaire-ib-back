@@ -121,7 +121,8 @@ router.post('/sync', authenticateAdminToken, async (req, res) => {
     // Provide detailed error message
     let errorMessage = 'Unable to sync trading groups from API';
     if (error.code === 'ECONNREFUSED') {
-      errorMessage = `Cannot connect to API server. Please check if the API is running at http://18.175.242.21:3000`;
+      const { MT5_API_BASE } = await import('../config/mt5Api.js');
+      errorMessage = `Cannot connect to API server. Please check if the API is running at ${MT5_API_BASE}`;
     } else if (error.code === 'ETIMEDOUT') {
       errorMessage = `API request timed out. The server may be slow or unreachable.`;
     } else if (error.response) {

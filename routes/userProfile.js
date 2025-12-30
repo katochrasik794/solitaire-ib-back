@@ -92,11 +92,11 @@ function calculateCommissionFromTrades(trades, commissionGroupsMap) {
   };
 }
 
-const MT5_API_BASE = 'http://18.130.5.209:5003';
+import { getMT5ApiUrl, MT5_ENDPOINTS } from '../config/mt5Api.js';
 
 // Helper: fetch MT5 client profile with small retry and timeout
 async function fetchMt5Profile(accountId) {
-  const url = `${MT5_API_BASE}/api/Users/${accountId}/getClientProfile`;
+  const url = getMT5ApiUrl(MT5_ENDPOINTS.GET_CLIENT_PROFILE(accountId));
   const attempt = async (timeoutMs) => {
     const controller = new AbortController();
     const t = setTimeout(() => controller.abort(), timeoutMs);

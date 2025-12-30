@@ -3,9 +3,9 @@ import { IBTradeHistory } from '../models/IBTradeHistory.js';
 import { IBCommission } from '../models/IBCommission.js';
 import { query } from '../config/database.js';
 import { authenticateAdminToken } from './adminAuth.js';
+import { MT5_API_BASE, getMT5ApiUrl, MT5_ENDPOINTS } from '../config/mt5Api.js';
 
 const router = express.Router();
-const MT5_API_BASE = 'https://metaapi.zuperior.com';
 
 // Helper function to normalize group IDs for commission mapping
 function makeKeys(gid) {
@@ -61,7 +61,7 @@ async function getAccessToken(accountId) {
     }
     
     // Call ClientAuth/login to get access token
-    const loginUrl = `${MT5_API_BASE}/api/client/ClientAuth/login`;
+    const loginUrl = getMT5ApiUrl(MT5_ENDPOINTS.LOGIN);
     console.log(`[AUTH] Calling login API: ${loginUrl}`);
     
     // MT5 API expects AccountId (capital A), Password (capital P), DeviceId, and DeviceType
@@ -214,7 +214,7 @@ router.post('/sync/:accountId', authenticateAdminToken, async (req, res) => {
     }
     
     // Fetch closed trades from MT5 API using trades-closed endpoint
-    const apiUrl = `${MT5_API_BASE}/api/client/tradehistory/trades-closed?accountId=${accountId}&fromDate=${encodeURIComponent(from)}&toDate=${encodeURIComponent(to)}&page=1&pageSize=1000`;
+    const apiUrl = `${getMT5ApiUrl(MT5_ENDPOINTS.TRADES_CLOSED)}?accountId=${accountId}&fromDate=${encodeURIComponent(from)}&toDate=${encodeURIComponent(to)}&page=1&pageSize=1000`;
     console.log('Fetching closed trades from:', apiUrl);
     
     const response = await fetch(apiUrl, {
@@ -235,7 +235,7 @@ router.post('/sync/:accountId', authenticateAdminToken, async (req, res) => {
     // Resolve group id for this account
     let groupId = null;
     try {
-      const profRes = await fetch(`${MT5_API_BASE}/api/Users/${accountId}/getClientProfile`, {
+      const profRes = await fetch(getMT5ApiUrl(MT5_ENDPOINTS.GET_CLIENT_PROFILE(accountId)), {
         headers: {
           'accept': '*/*',
           'Authorization': `Bearer ${accessToken}`
@@ -477,7 +477,7 @@ router.post('/sync-user/:ibRequestId', authenticateAdminToken, async (req, res) 
         const to = toDate || new Date().toISOString();
         const from = fromDate || new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
         
-        const apiUrl = `${MT5_API_BASE}/api/client/tradehistory/trades?accountId=${accountId}&page=1&pageSize=1000&fromDate=${from}&toDate=${to}`;
+        const apiUrl = `${getMT5ApiUrl(MT5_ENDPOINTS.TRADES)}?accountId=${accountId}&page=1&pageSize=1000&fromDate=${from}&toDate=${to}`;
         const response = await fetch(apiUrl, { headers: { 'accept': '*/*' } });
         
         if (response.ok) {
@@ -486,7 +486,7 @@ router.post('/sync-user/:ibRequestId', authenticateAdminToken, async (req, res) 
           // get group id per account
           let groupId = null;
           try {
-            const profRes = await fetch(`${MT5_API_BASE}/api/Users/${accountId}/getClientProfile`, { headers: { accept: '*/*' } });
+            const profRes = await fetch(getMT5ApiUrl(MT5_ENDPOINTS.GET_CLIENT_PROFILE(accountId)), { headers: { accept: '*/*' } });
             if (profRes.ok) {
               const prof = await profRes.json();
               groupId = (prof?.Data || prof?.data)?.Group || null;
@@ -578,7 +578,7 @@ router.get('/history/:accountId', authenticateAdminToken, async (req, res) => {
     }
     
     // Fetch closed trades from MT5 API
-    const apiUrl = `${MT5_API_BASE}/api/client/tradehistory/trades-closed?accountId=${accountId}&fromDate=${encodeURIComponent(from)}&toDate=${encodeURIComponent(to)}&page=${page}&pageSize=${pageSize}`;
+    const apiUrl = `${getMT5ApiUrl(MT5_ENDPOINTS.TRADES_CLOSED)}?accountId=${accountId}&fromDate=${encodeURIComponent(from)}&toDate=${encodeURIComponent(to)}&page=${page}&pageSize=${pageSize}`;
     
     const response = await fetch(apiUrl, {
       headers: {
@@ -683,7 +683,7 @@ router.get('/history/:accountId', authenticateAdminToken, async (req, res) => {
             // Resolve group id for this account
             let groupId = null;
             try {
-              const profRes = await fetch(`${MT5_API_BASE}/api/Users/${accountId}/getClientProfile`, {
+              const profRes = await fetch(getMT5ApiUrl(MT5_ENDPOINTS.GET_CLIENT_PROFILE(accountId)), {
                 headers: {
                   'accept': '*/*',
                   'Authorization': `Bearer ${accessToken}`

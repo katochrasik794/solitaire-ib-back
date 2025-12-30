@@ -25,25 +25,54 @@ router.get('/', authenticateAdminToken, async (req, res) => {
   }
 });
 
-// Sync symbols from external API
+// Sync symbols from external API with progress updates
 router.post('/sync', authenticateAdminToken, async (req, res) => {
-  try {
-    const result = await Symbols.syncFromAPI();
+  // Set headers for Server-Sent Events (SSE)
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
 
-    res.json({
-      success: true,
-      message: result.message,
-      data: {
-        synced: result.synced
+  try {
+    // Send progress updates via SSE
+    const onProgress = (progressData) => {
+      try {
+        res.write(`data: ${JSON.stringify(progressData)}\n\n`);
+      } catch (err) {
+        console.error('Error sending progress update:', err);
       }
-    });
+    };
+
+    // Run sync with progress callback
+    const result = await Symbols.syncFromAPI(onProgress);
+
+    // Send final result
+    res.write(`data: ${JSON.stringify({ 
+      step: 'completed', 
+      progress: 100, 
+      result: {
+        success: true,
+        message: result.message,
+        synced: result.synced,
+        total: result.total,
+        failed: result.failed || 0
+      }
+    })}\n\n`);
+    
+    res.end();
   } catch (error) {
     console.error('Sync symbols error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Unable to sync symbols from API',
-      error: error.message
-    });
+    try {
+      res.write(`data: ${JSON.stringify({ 
+        step: 'error', 
+        progress: 0, 
+        error: error.message 
+      })}\n\n`);
+      res.end();
+    } catch (err) {
+      // Connection might be closed
+      console.error('Error sending error message:', err);
+    }
   }
 });
 

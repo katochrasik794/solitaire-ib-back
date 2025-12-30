@@ -1,6 +1,6 @@
- import express from 'express';
- import { IBRequest, IB_REQUEST_TYPE_VALUES, IB_REQUEST_STATUS_VALUES } from '../models/IBRequest.js';
- import { GroupManagement } from '../models/GroupManagement.js';
+import express from 'express';
+import { IBRequest, IB_REQUEST_TYPE_VALUES, IB_REQUEST_STATUS_VALUES } from '../models/IBRequest.js';
+import { GroupManagement } from '../models/GroupManagement.js';
 import { GroupCommissionStructures } from '../models/GroupCommissionStructures.js';
 import { IBGroupAssignment } from '../models/IBGroupAssignment.js';
 import { IBTradeHistory } from '../models/IBTradeHistory.js';
@@ -8,6 +8,7 @@ import { IBTradeHistory } from '../models/IBTradeHistory.js';
  import { authenticateAdminToken } from './adminAuth.js';
  import { query } from '../config/database.js';
 import { IBCommission } from '../models/IBCommission.js';
+import { getMT5ApiUrl, MT5_ENDPOINTS } from '../config/mt5Api.js';
 
 const router = express.Router();
 const ALLOWED_IB_TYPES = IB_REQUEST_TYPE_VALUES;
@@ -1657,7 +1658,7 @@ router.get('/profiles/:ibId/user/:userId/accounts', authenticateAdminToken, asyn
           const balanceController = new AbortController();
           const balanceTimeout = setTimeout(() => balanceController.abort(), 5000);
           const balanceResponse = await fetch(
-            `http://18.175.242.21:5003/api/Users/${accountId}/getClientBalance`,
+            getMT5ApiUrl(MT5_ENDPOINTS.GET_CLIENT_BALANCE(accountId)),
             { headers: { accept: '*/*' }, signal: balanceController.signal }
           );
           clearTimeout(balanceTimeout);
@@ -1690,7 +1691,7 @@ router.get('/profiles/:ibId/user/:userId/accounts', authenticateAdminToken, asyn
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 12000);
         const response = await fetch(
-          `http://18.175.242.21:5003/api/Users/${accountId}/getClientProfile`,
+          getMT5ApiUrl(MT5_ENDPOINTS.GET_CLIENT_PROFILE(accountId)),
           { headers: { accept: '*/*' }, signal: controller.signal }
         );
         clearTimeout(timeout);
@@ -2042,7 +2043,7 @@ router.get('/profiles/:id/all-accounts', authenticateAdminToken, async (req, res
           const balanceController = new AbortController();
           const balanceTimeout = setTimeout(() => balanceController.abort(), 5000);
           const balanceResponse = await fetch(
-            `http://18.175.242.21:5003/api/Users/${accountId}/getClientBalance`,
+            getMT5ApiUrl(MT5_ENDPOINTS.GET_CLIENT_BALANCE(accountId)),
             { headers: { accept: '*/*' }, signal: balanceController.signal }
           );
           clearTimeout(balanceTimeout);
@@ -2074,7 +2075,7 @@ router.get('/profiles/:id/all-accounts', authenticateAdminToken, async (req, res
           const controller = new AbortController();
           const timeout = setTimeout(() => controller.abort(), 5000);
           const response = await fetch(
-            `http://18.175.242.21:5003/api/Users/${accountId}/getClientProfile`,
+            getMT5ApiUrl(MT5_ENDPOINTS.GET_CLIENT_PROFILE(accountId)),
             { headers: { accept: '*/*' }, signal: controller.signal }
           );
           clearTimeout(timeout);
@@ -2447,7 +2448,7 @@ router.get('/profiles/:id/account-stats', authenticateAdminToken, async (req, re
     // Fetch profiles in parallel for speed, each with timeout + one retry
     const fetchOne = async (accountId) => {
       let payload = null;
-      const profileUrl = `http://18.175.242.21:5003/api/Users/${accountId}/getClientProfile`;
+      const profileUrl = getMT5ApiUrl(MT5_ENDPOINTS.GET_CLIENT_PROFILE(accountId));
       const attempt = async () => {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 12000);
@@ -3009,7 +3010,7 @@ async function computeGroupAggregates(ibId, ibEmail) {
     const profilePromises = accountsRes.rows.map(async (row) => {
       const accountId = row.accountId;
       try {
-        const res = await fetch(`http://18.175.242.21:5003/api/Users/${accountId}/getClientProfile`, { headers: { accept: '*/*' } });
+        const res = await fetch(getMT5ApiUrl(MT5_ENDPOINTS.GET_CLIENT_PROFILE(accountId)), { headers: { accept: '*/*' } });
         if (res.ok) {
           const data = await res.json();
           const payload = data?.Data || data?.data || null;
@@ -3052,7 +3053,7 @@ async function computeGroupAggregates(ibId, ibEmail) {
     const accountProfits = {};
     const profitPromises = Object.keys(accountToGroup).map(async (accountId) => {
       try {
-        const res = await fetch(`http://18.175.242.21:5003/api/Users/${accountId}/getClientProfile`, { headers: { accept: '*/*' } });
+        const res = await fetch(getMT5ApiUrl(MT5_ENDPOINTS.GET_CLIENT_PROFILE(accountId)), { headers: { accept: '*/*' } });
         if (res.ok) {
           const data = await res.json();
           const payload = data?.Data || data?.data || null;
@@ -3166,7 +3167,7 @@ async function syncTradesForAccount({ ibId, userId, accountId }) {
     const to = new Date().toISOString();
     // Fetch a wider window to ensure we capture existing trades
     const from = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
-    const apiUrl = `http://18.130.5.209:5003/api/client/tradehistory/trades?accountId=${accountId}&page=1&pageSize=1000&fromDate=${from}&toDate=${to}`;
+    const apiUrl = `${getMT5ApiUrl(MT5_ENDPOINTS.TRADES)}?accountId=${accountId}&page=1&pageSize=1000&fromDate=${from}&toDate=${to}`;
 
     const response = await fetch(apiUrl, { headers: { accept: '*/*' } });
     if (!response.ok) {
@@ -3179,7 +3180,7 @@ async function syncTradesForAccount({ ibId, userId, accountId }) {
     // Resolve group id for this account
     let groupId = null;
     try {
-      const profRes = await fetch(`http://18.130.5.209:5003/api/Users/${accountId}/getClientProfile`, { headers: { accept: '*/*' } });
+      const profRes = await fetch(getMT5ApiUrl(MT5_ENDPOINTS.GET_CLIENT_PROFILE(accountId)), { headers: { accept: '*/*' } });
       if (profRes.ok) {
         const prof = await profRes.json();
         groupId = (prof?.Data || prof?.data)?.Group || null;
@@ -3259,7 +3260,7 @@ async function getAccountStats(ibId) {
         const timeout = setTimeout(() => controller.abort(), 15000); // 15 second timeout
         
         const response = await fetch(
-          `http://18.175.242.21:5003/api/Users/${accountId}/getClientProfile`,
+          getMT5ApiUrl(MT5_ENDPOINTS.GET_CLIENT_PROFILE(accountId)),
           {
             headers: { 'accept': '*/*' },
             signal: controller.signal
@@ -3365,7 +3366,7 @@ async function getTradingAccounts(ibId) {
         const fetchPromises = result.rows.map(async (row, index) => {
           const accountId = row.accountId;
           try {
-            const response = await fetch(`http://18.175.242.21:5003/api/Users/${accountId}/getClientProfile`, { headers: { 'accept': '*/*' } });
+            const response = await fetch(getMT5ApiUrl(MT5_ENDPOINTS.GET_CLIENT_PROFILE(accountId)), { headers: { 'accept': '*/*' } });
             if (response.ok) {
               const apiData = await response.json();
               if (apiData.Success && apiData.Data) {

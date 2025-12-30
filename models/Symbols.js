@@ -30,9 +30,14 @@ export class Symbols {
     }
   }
 
-  static async syncFromAPI() {
+  static async syncFromAPI(onProgress = null) {
     try {
-      const response = await fetch('http://18.175.242.21:5003/api/Symbols', {
+      const { getMT5ApiUrl, MT5_ENDPOINTS } = await import('../config/mt5Api.js');
+      
+      // Step 1: Fetch from API (10% progress)
+      if (onProgress) onProgress({ step: 'Fetching from API...', progress: 10, current: 0, total: 0 });
+      
+      const response = await fetch(getMT5ApiUrl(MT5_ENDPOINTS.SYMBOLS), {
         method: 'GET',
         headers: {
           'accept': 'text/plain',
@@ -57,15 +62,22 @@ export class Symbols {
       const symbolsArray = Array.isArray(symbolsData) ? symbolsData : symbolsData.data || [];
 
       if (symbolsArray.length === 0) {
-        return { message: 'No symbols data received from API', synced: 0 };
+        if (onProgress) onProgress({ step: 'No symbols to sync', progress: 100, current: 0, total: 0 });
+        return { message: 'No symbols data received from API', synced: 0, total: 0 };
       }
 
-      // Clear existing data
+      const totalSymbols = symbolsArray.length;
+      
+      // Step 2: Clear existing data (20% progress)
+      if (onProgress) onProgress({ step: 'Clearing existing symbols...', progress: 20, current: 0, total: totalSymbols });
       await query('DELETE FROM symbols');
 
-      // Insert new data
+      // Step 3: Insert new data (20-100% progress)
       let synced = 0;
-      for (const symbol of symbolsArray) {
+      let failed = 0;
+      
+      for (let i = 0; i < symbolsArray.length; i++) {
+        const symbol = symbolsArray[i];
         try {
           await query(`
             INSERT INTO symbols (
@@ -105,15 +117,34 @@ export class Symbols {
           synced++;
         } catch (insertError) {
           console.error(`Error inserting symbol ${symbol.Symbol || symbol.symbol_name}:`, insertError);
+          failed++;
+        }
+        
+        // Update progress: 20% (clear) + 80% (insert progress)
+        const progress = 20 + Math.floor((i + 1) / totalSymbols * 80);
+        if (onProgress) {
+          onProgress({
+            step: `Saving symbols to database...`,
+            progress: progress,
+            current: i + 1,
+            total: totalSymbols,
+            synced: synced,
+            failed: failed
+          });
         }
       }
 
+      if (onProgress) onProgress({ step: 'Sync completed!', progress: 100, current: totalSymbols, total: totalSymbols, synced: synced, failed: failed });
+
       return {
-        message: `Successfully synced ${synced} symbols from API`,
-        synced: synced
+        message: `Successfully synced ${synced} symbols from API${failed > 0 ? ` (${failed} failed)` : ''}`,
+        synced: synced,
+        total: totalSymbols,
+        failed: failed
       };
     } catch (error) {
       console.error('Error syncing symbols from API:', error);
+      if (onProgress) onProgress({ step: 'Error occurred', progress: 0, current: 0, total: 0, error: error.message });
       throw error;
     }
   }
